@@ -1,0 +1,28 @@
+# Build & IDE artifacts
+target/
+.git/
+.gitignore
+.idea/
+*.iml
+.vscode/
+
+# Frontend bundle (build separately or deployed via Vercel)
+frontend/
+
+# Local scripts & test logs
+*.log
+*.ps1
+*.cjs
+*.bat
+diff_files.ps1
+patch_*.ps1
+check_*.ps1
+find_*.ps1
+inspect_*.ps1
+test_*.ps1
+update_*.ps1
+replace_*.ps1
+
+# System files
+.DS_Store
+Thumbs.db

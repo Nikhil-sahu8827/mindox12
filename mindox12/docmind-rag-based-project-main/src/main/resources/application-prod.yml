@@ -1,0 +1,76 @@
+server:
+  port: ${PORT:8080}
+  shutdown: graceful
+
+spring:
+  application:
+    name: docmind-backend
+
+  autoconfigure:
+    exclude:
+      - org.springframework.ai.vectorstore.pgvector.autoconfigure.PgVectorStoreAutoConfiguration
+
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:${DATABASE_URL:jdbc:postgresql://${DB_HOST:ep-icy-butterfly-bedksgsy-pooler.c-9.us-east-2.aws.neon.tech}:${DB_PORT:5432}/${DB_NAME:neondb}?sslmode=${DB_SSLMODE:require}}}
+    username: ${DB_USER:${SPRING_DATASOURCE_USERNAME:neondb_owner}}
+    password: ${DB_PASS:${SPRING_DATASOURCE_PASSWORD:npg_njtEGBU1m2KO}}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      pool-name: DocMindHikariCP
+      maximum-pool-size: ${DB_POOL_MAX:10}
+      minimum-idle: ${DB_POOL_MIN:2}
+      idle-timeout: 30000
+      max-lifetime: 1800000
+      connection-timeout: 20000
+
+  jpa:
+    hibernate:
+      ddl-auto: ${DDL_AUTO:update}
+    show-sql: ${SHOW_SQL:false}
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: false
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        jdbc:
+          batch_size: 25
+          lob:
+            non_contextual_creation: true
+
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 100MB
+
+  ai:
+    openai:
+      base-url: ${OPENAI_BASE_URL:https://generativelanguage.googleapis.com/v1beta/openai}
+      api-key: ${OPENAI_API_KEY:your-gemini-api-key}
+      chat:
+        completions-path: /chat/completions
+        options:
+          model: ${OPENAI_MODEL:gemini-flash-lite-latest}
+    vectorstore:
+      pgvector:
+        initialize-schema: false
+        dimensions: 1536
+
+app:
+  jwt:
+    secret: ${JWT_SECRET:404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}
+    expiration-ms: ${JWT_EXPIRATION_MS:86400000} # 24 hours
+
+springdoc:
+  swagger-ui:
+    enabled: ${SWAGGER_ENABLED:true}
+    path: /swagger-ui.html
+  api-docs:
+    enabled: ${SWAGGER_ENABLED:true}
+    path: /v3/api-docs
+
+logging:
+  level:
+    root: ${LOG_LEVEL:INFO}
+    com.substring.docmind: ${APP_LOG_LEVEL:INFO}
+    org.springframework.security: ${SECURITY_LOG_LEVEL:WARN}
+    org.hibernate: WARN

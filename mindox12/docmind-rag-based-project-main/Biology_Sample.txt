@@ -1,0 +1,7 @@
+﻿Photosynthesis is the biochemical process by which green plants and certain other organisms transform light energy into chemical energy.
+During photosynthesis in green plants, light energy is captured and used to convert water, carbon dioxide, and minerals into oxygen and energy-rich organic compounds.
+Chlorophyll is the green pigment in plants that absorbs light energy required for photosynthesis.
+The light-dependent reactions take place in the thylakoid membranes of chloroplasts, producing ATP and NADPH.
+The Calvin cycle takes place in the stroma of chloroplasts, using ATP and NADPH to assimilate carbon dioxide into carbohydrates.
+Stomata are microscopic pores on the surface of leaves that regulate gas exchange and transpiration.
+Cellular respiration is the metabolic process that releases energy by breaking down glucose in the presence of oxygen.

@@ -1,0 +1,7 @@
+﻿Cloud computing is the on-demand delivery of IT resources over the internet with pay-as-you-go pricing.
+Infrastructure as a Service (IaaS) provides users with fundamental compute, storage, and networking resources on demand.
+Platform as a Service (PaaS) provides a managed cloud environment for developing, running, and managing applications without hardware management overhead.
+Software as a Service (SaaS) delivers complete software applications over the internet accessible via web browsers.
+Elasticity in cloud systems refers to the ability to automatically scale computing resources up or down according to workload demand.
+Object storage systems such as Amazon S3 store unstructured data as discrete objects containing data, metadata, and unique identifiers.
+A Virtual Private Cloud (VPC) provides an isolated private network within a public cloud infrastructure.
