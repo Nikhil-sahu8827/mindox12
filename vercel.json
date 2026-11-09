@@ -1,0 +1,23 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "services": {
+    "backend": {
+      "root": "mindox12/docmind-rag-based-project-main",
+      "entrypoint": "Dockerfile"
+    },
+    "frontend": {
+      "root": "mindox12/docmind-rag-based-project-main/frontend/docmind-frontend",
+      "framework": "vite"
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": { "service": "backend" }
+    },
+    {
+      "source": "/(.*)",
+      "destination": { "service": "frontend" }
+    }
+  ]
+}

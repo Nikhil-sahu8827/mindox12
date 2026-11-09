@@ -54,7 +54,7 @@ RUN mkdir -p /app/data/website_knowledge /app/uploads && \
 USER docmind
 
 # Default port exposed by the application
-EXPOSE 8080
+EXPOSE 8080 80
 
 # Production environment defaults
 ENV SPRING_PROFILES_ACTIVE=prod \
