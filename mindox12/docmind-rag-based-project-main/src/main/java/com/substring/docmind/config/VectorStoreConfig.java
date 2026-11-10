@@ -26,7 +26,14 @@ public class VectorStoreConfig {
 
         EmbeddingModel fallbackModel = createFallbackEmbeddingModel();
 
-        if (!"mock-key".equalsIgnoreCase(apiKey) && !apiKey.isBlank()) {
+        boolean isPlaceholderKey = apiKey == null
+                || apiKey.isBlank()
+                || "mock-key".equalsIgnoreCase(apiKey)
+                || "your-gemini-api-key".equalsIgnoreCase(apiKey)
+                || apiKey.startsWith("your-")
+                || apiKey.contains("dummy");
+
+        if (!isPlaceholderKey) {
             OpenAiEmbeddingModel openAiModel = openAiEmbeddingModelProvider.getIfAvailable();
             if (openAiModel != null) {
                 log.info("Using real OpenAiEmbeddingModel with configured API key.");

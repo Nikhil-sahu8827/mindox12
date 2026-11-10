@@ -29,11 +29,17 @@ public class DocumentIngestionService {
             if (isVectorStoreTablePresent()) {
                 for (Document chunk : chunks) {
                     String chunkId = chunk.getId() != null ? chunk.getId() : java.util.UUID.randomUUID().toString();
+                    java.util.UUID uid;
+                    try {
+                        uid = java.util.UUID.fromString(chunkId);
+                    } catch (Exception ignored) {
+                        uid = java.util.UUID.randomUUID();
+                    }
                     String metaJson = objectMapper.writeValueAsString(chunk.getMetadata());
                     jdbcTemplate.update(
                             "INSERT INTO vector_store (id, content, metadata) VALUES (?, ?, ?::jsonb) " +
                             "ON CONFLICT (id) DO UPDATE SET content = EXCLUDED.content, metadata = EXCLUDED.metadata",
-                            chunkId, chunk.getText(), metaJson
+                            uid, chunk.getText(), metaJson
                     );
                 }
                 log.info("Persisted {} chunks to PostgreSQL vector_store for document: {}", chunks.size(), documentId);

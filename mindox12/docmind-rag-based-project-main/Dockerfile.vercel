@@ -31,8 +31,8 @@ FROM eclipse-temurin:21-jre-alpine AS runner
 
 WORKDIR /app
 
-# Install curl for healthcheck
-RUN apk add --no-cache curl
+# Install curl, fontconfig, and standard fonts for PDFBox document parsing
+RUN apk add --no-cache curl fontconfig ttf-dejavu ttf-freefont
 
 # Copy compiled jar from builder stage
 COPY --from=builder /app/target/*.jar app.jar
@@ -50,7 +50,7 @@ EXPOSE 8080 80
 # Production environment defaults
 ENV PORT=8080 \
     SPRING_PROFILES_ACTIVE=prod \
-    JAVA_OPTS="-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -XX:+ExitOnOutOfMemoryError -XX:TieredStopAtLevel=1 -Dspring.main.lazy-initialization=true -Djava.security.egd=file:/dev/./urandom"
+    JAVA_OPTS="-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -XX:+ExitOnOutOfMemoryError -XX:TieredStopAtLevel=1 -Dspring.main.lazy-initialization=true -Djava.awt.headless=true -Djava.security.egd=file:/dev/./urandom"
 
 # Container healthcheck
 HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
