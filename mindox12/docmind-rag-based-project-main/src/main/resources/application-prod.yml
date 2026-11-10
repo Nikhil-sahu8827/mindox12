@@ -1,10 +1,13 @@
 server:
   port: ${PORT:8080}
+  address: 0.0.0.0
   shutdown: graceful
 
 spring:
   application:
     name: docmind-backend
+  main:
+    lazy-initialization: ${LAZY_INIT:true}
 
   autoconfigure:
     exclude:
@@ -25,7 +28,7 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: ${DDL_AUTO:update}
+      ddl-auto: ${DDL_AUTO:none}
     show-sql: ${SHOW_SQL:false}
     open-in-view: false
     properties:
