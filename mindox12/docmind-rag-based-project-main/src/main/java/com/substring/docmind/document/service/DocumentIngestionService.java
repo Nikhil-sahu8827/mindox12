@@ -27,21 +27,35 @@ public class DocumentIngestionService {
         if (jdbcTemplate == null || chunks == null || chunks.isEmpty()) return;
         try {
             if (isVectorStoreTablePresent()) {
-                for (Document chunk : chunks) {
-                    String chunkId = chunk.getId() != null ? chunk.getId() : java.util.UUID.randomUUID().toString();
-                    java.util.UUID uid;
-                    try {
-                        uid = java.util.UUID.fromString(chunkId);
-                    } catch (Exception ignored) {
-                        uid = java.util.UUID.randomUUID();
-                    }
-                    String metaJson = objectMapper.writeValueAsString(chunk.getMetadata());
-                    jdbcTemplate.update(
-                            "INSERT INTO vector_store (id, content, metadata) VALUES (?, ?, ?::jsonb) " +
-                            "ON CONFLICT (id) DO UPDATE SET content = EXCLUDED.content, metadata = EXCLUDED.metadata",
-                            uid, chunk.getText(), metaJson
-                    );
-                }
+                jdbcTemplate.batchUpdate(
+                        "INSERT INTO vector_store (id, content, metadata) VALUES (?, ?, ?::jsonb) " +
+                        "ON CONFLICT (id) DO UPDATE SET content = EXCLUDED.content, metadata = EXCLUDED.metadata",
+                        new org.springframework.jdbc.core.BatchPreparedStatementSetter() {
+                            @Override
+                            public void setValues(java.sql.PreparedStatement ps, int i) throws java.sql.SQLException {
+                                Document chunk = chunks.get(i);
+                                String chunkId = chunk.getId() != null ? chunk.getId() : java.util.UUID.randomUUID().toString();
+                                java.util.UUID uid;
+                                try {
+                                    uid = java.util.UUID.fromString(chunkId);
+                                } catch (Exception ignored) {
+                                    uid = java.util.UUID.randomUUID();
+                                }
+                                ps.setObject(1, uid);
+                                ps.setString(2, chunk.getText());
+                                try {
+                                    ps.setString(3, objectMapper.writeValueAsString(chunk.getMetadata()));
+                                } catch (Exception e) {
+                                    ps.setString(3, "{}");
+                                }
+                            }
+
+                            @Override
+                            public int getBatchSize() {
+                                return chunks.size();
+                            }
+                        }
+                );
                 log.info("Persisted {} chunks to PostgreSQL vector_store for document: {}", chunks.size(), documentId);
             }
         } catch (Exception e) {

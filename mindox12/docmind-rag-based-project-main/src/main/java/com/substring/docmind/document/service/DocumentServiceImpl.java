@@ -74,10 +74,7 @@ public class DocumentServiceImpl implements DocumentService {
         DocumentMetadata saved = documentMetadataRepository.saveAndFlush(metadata);
 
         if (!chunks.isEmpty()) {
-            ingestionService.ingestChunksSync(documentId, chunks);
-            saved.setStatus(DocumentStatus.INDEXED);
-            saved.setTotalChunks(chunks.size());
-            saved = documentMetadataRepository.saveAndFlush(saved);
+            ingestionService.ingestChunksAsync(documentId, chunks);
         } else {
             saved.setStatus(DocumentStatus.INDEXED);
             saved = documentMetadataRepository.saveAndFlush(saved);

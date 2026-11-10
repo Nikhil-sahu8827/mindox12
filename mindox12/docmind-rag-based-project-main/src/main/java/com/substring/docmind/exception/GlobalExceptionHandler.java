@@ -99,18 +99,21 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponse<Object>> handleRuntimeException(RuntimeException ex) {
         log.error("Runtime exception during request processing: {}", ex.getMessage(), ex);
         String msg = ex.getMessage();
-        if (msg != null && (msg.contains("PDF") || msg.contains("DOCX") || msg.contains("parse") || msg.contains("upload"))) {
-            return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY)
-                    .body(ApiResponse.error(msg));
+        if (msg == null || msg.isBlank()) {
+            msg = "An unexpected error occurred during processing";
         }
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(ApiResponse.error("An unexpected error occurred. Please try again later."));
+        return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY)
+                .body(ApiResponse.error(msg));
     }
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Object>> handleGenericException(Exception ex) {
         log.error("Unhandled server exception: {}", ex.getMessage(), ex);
+        String msg = ex.getMessage();
+        if (msg == null || msg.isBlank()) {
+            msg = "An unexpected server error occurred: " + ex.getClass().getSimpleName();
+        }
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(ApiResponse.error("An unexpected error occurred. Please try again later."));
+                .body(ApiResponse.error(msg));
     }
 }
