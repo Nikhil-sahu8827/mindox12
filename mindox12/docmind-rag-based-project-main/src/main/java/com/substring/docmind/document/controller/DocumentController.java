@@ -29,7 +29,7 @@ public class DocumentController {
     private final DocumentService documentService;
     private final com.substring.docmind.document.service.WebsiteKnowledgeService websiteKnowledgeService;
 
-    @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PostMapping(value = "/upload", consumes = { MediaType.MULTIPART_FORM_DATA_VALUE, "*/*" })
     @Operation(summary = "Upload single document", description = "Uploads and parses a document, generating vector embeddings")
     public ResponseEntity<ApiResponse<DocumentDto>> upload(
             @RequestParam("file") MultipartFile file,
@@ -40,7 +40,7 @@ public class DocumentController {
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success("Document uploaded successfully", response));
     }
 
-    @PostMapping(value = "/upload-multiple", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PostMapping(value = "/upload-multiple", consumes = { MediaType.MULTIPART_FORM_DATA_VALUE, "*/*" })
     @Operation(summary = "Upload multiple documents", description = "Batch uploads documents for RAG processing")
     public ResponseEntity<ApiResponse<List<DocumentDto>>> uploadMultiple(
             @RequestParam("files") List<MultipartFile> files,
