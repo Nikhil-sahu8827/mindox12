@@ -811,9 +811,7 @@ public class TopicGrowthServiceImpl implements TopicGrowthService {
                                 .sourceFileName(fname)
                                 .selectedOption(q.getUserAnswer())
                                 .isCorrect(isCorrect)
-                                .createdAt(q.getQuiz().getCreatedAt() != null
-                                        ? LocalDateTime.ofInstant(q.getQuiz().getCreatedAt(), java.time.ZoneId.systemDefault())
-                                        : LocalDateTime.now())
+                                .createdAt(q.getQuiz().getCreatedAt() != null ? q.getQuiz().getCreatedAt() : LocalDateTime.now())
                                 .build();
 
                         questionAttemptRepository.save(attempt);
