@@ -5,7 +5,6 @@ import com.substring.docmind.document.repository.DocumentMetadataRepository;
 import com.substring.docmind.growth.entity.StudyTopic;
 import com.substring.docmind.growth.repository.StudyTopicRepository;
 import com.substring.docmind.user.entity.User;
-import com.substring.docmind.user.repository.UserRepository;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -376,11 +375,27 @@ public class TopicExtractionServiceImpl implements TopicExtractionService {
         return sb.toString().trim();
     }
 
-    @lombok.AllArgsConstructor
-    @lombok.Getter
     private static class ExtractedTopicStructure {
-        private String mainTopic;
-        private String description;
-        private List<String> subtopics;
+        private final String mainTopic;
+        private final String description;
+        private final List<String> subtopics;
+
+        public ExtractedTopicStructure(String mainTopic, String description, List<String> subtopics) {
+            this.mainTopic = mainTopic;
+            this.description = description;
+            this.subtopics = subtopics;
+        }
+
+        public String getMainTopic() {
+            return mainTopic;
+        }
+
+        public String getDescription() {
+            return description;
+        }
+
+        public List<String> getSubtopics() {
+            return subtopics;
+        }
     }
 }
