@@ -1,20 +1,20 @@
 server:
-  port: ${PORT:8088}
+  port: ${PORT:8080}
 
 spring:
   application:
     name: docmind-backend
   profiles:
-    active: ${SPRING_PROFILES_ACTIVE:default}
+    active: ${SPRING_PROFILES_ACTIVE:prod}
 
   autoconfigure:
     exclude:
       - org.springframework.ai.vectorstore.pgvector.autoconfigure.PgVectorStoreAutoConfiguration
 
   datasource:
-    url: ${SPRING_DATASOURCE_URL:${DATABASE_URL:jdbc:postgresql://${DB_HOST:127.0.0.1}:${DB_PORT:5432}/${DB_NAME:docmind}}}
-    username: ${DB_USER:${SPRING_DATASOURCE_USERNAME:postgres}}
-    password: ${DB_PASS:${SPRING_DATASOURCE_PASSWORD:root}}
+    url: ${SPRING_DATASOURCE_URL:${DATABASE_URL:jdbc:postgresql://${DB_HOST:ep-icy-butterfly-bedksgsy-pooler.c-9.us-east-2.aws.neon.tech}:${DB_PORT:5432}/${DB_NAME:neondb}?sslmode=${DB_SSLMODE:require}}}
+    username: ${DB_USER:${SPRING_DATASOURCE_USERNAME:neondb_owner}}
+    password: ${DB_PASS:${SPRING_DATASOURCE_PASSWORD:npg_njtEGBU1m2KO}}
     driver-class-name: org.postgresql.Driver
 
   jpa:

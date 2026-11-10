@@ -34,9 +34,6 @@ WORKDIR /app
 # Install curl for container health check
 RUN apk add --no-cache curl
 
-# Create dedicated non-root application user for container security
-RUN addgroup -S docmind && adduser -S docmind -G docmind
-
 # Copy compiled jar from builder stage
 COPY --from=builder /app/target/*.jar app.jar
 
@@ -44,22 +41,19 @@ COPY --from=builder /app/target/*.jar app.jar
 COPY --from=builder /app/docs ./docs
 COPY --from=builder /app/Biology_Sample.txt /app/Cloud_Computing.txt /app/Empty_Doc.txt ./
 
-# Prepare application runtime directories with appropriate ownership
-RUN mkdir -p /app/data/website_knowledge /app/uploads && \
-    chown -R docmind:docmind /app
-
-# Switch to non-root user
-USER docmind
+# Prepare application runtime directories
+RUN mkdir -p /app/data/website_knowledge /app/uploads
 
 # Default port exposed by the application
 EXPOSE 8080 80
 
 # Production environment defaults
-ENV SPRING_PROFILES_ACTIVE=prod \
+ENV PORT=8080 \
+    SPRING_PROFILES_ACTIVE=prod \
     JAVA_OPTS="-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -XX:+ExitOnOutOfMemoryError -Djava.security.egd=file:/dev/./urandom"
 
 # Container healthcheck
-HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
   CMD curl -f http://localhost:${PORT:-8080}/health || exit 1
 
-ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar"]
+ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -Dserver.port=${PORT:-8080} -Dspring.profiles.active=${SPRING_PROFILES_ACTIVE:-prod} -jar app.jar"]

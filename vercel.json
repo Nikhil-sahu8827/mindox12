@@ -3,7 +3,8 @@
   "services": {
     "backend": {
       "root": "mindox12/docmind-rag-based-project-main",
-      "entrypoint": "Dockerfile"
+      "entrypoint": "Dockerfile",
+      "framework": "container"
     },
     "frontend": {
       "root": "mindox12/docmind-rag-based-project-main/frontend/docmind-frontend",

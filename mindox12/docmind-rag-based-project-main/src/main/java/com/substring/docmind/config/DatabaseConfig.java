@@ -39,12 +39,12 @@ public class DatabaseConfig {
                 String path = uri.getPath();
                 String query = uri.getQuery();
 
-                if (uri.getUserInfo() != null) {
+                if (uri.getUserInfo() != null && !uri.getUserInfo().isBlank()) {
                     String[] userInfo = uri.getUserInfo().split(":", 2);
-                    if (username == null || username.isBlank()) {
+                    if (userInfo.length > 0 && !userInfo[0].isBlank()) {
                         username = userInfo[0];
                     }
-                    if (userInfo.length > 1 && (password == null || password.isBlank())) {
+                    if (userInfo.length > 1 && !userInfo[1].isBlank()) {
                         password = userInfo[1];
                     }
                 }
