@@ -25,7 +25,11 @@ public interface StudyTopicRepository extends JpaRepository<StudyTopic, Long> {
 
     Optional<StudyTopic> findByNormalizedKey(String normalizedKey);
 
+    Optional<StudyTopic> findFirstByNormalizedKeyOrderByIdAsc(String normalizedKey);
+
     Optional<StudyTopic> findByNormalizedKeyAndUser(String normalizedKey, User user);
+
+    Optional<StudyTopic> findFirstByNormalizedKeyAndUserOrderByIdAsc(String normalizedKey, User user);
 
     @org.springframework.data.jpa.repository.Modifying
     @org.springframework.transaction.annotation.Transactional

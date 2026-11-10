@@ -71,7 +71,7 @@ public class TopicExtractionServiceImpl implements TopicExtractionService {
     }
 
     @Override
-    @Transactional
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
     public List<StudyTopic> extractTopicsForDocument(DocumentMetadata document, User user) {
         if (document == null) return Collections.emptyList();
 
@@ -117,7 +117,7 @@ public class TopicExtractionServiceImpl implements TopicExtractionService {
             String normMainKey = normalizeKey(struct.getMainTopic());
 
             // Check if main topic already exists in platform to avoid duplicate creation
-            StudyTopic mainTopic = studyTopicRepository.findByNormalizedKey(normMainKey)
+            StudyTopic mainTopic = studyTopicRepository.findFirstByNormalizedKeyOrderByIdAsc(normMainKey)
                     .orElseGet(() -> StudyTopic.builder()
                             .document(document)
                             .user(user)
@@ -145,7 +145,7 @@ public class TopicExtractionServiceImpl implements TopicExtractionService {
                 final StudyTopic parentTopic = mainTopic;
                 final int currentSubOrder = subOrder++;
 
-                StudyTopic subTopic = studyTopicRepository.findByNormalizedKey(normSubKey)
+                StudyTopic subTopic = studyTopicRepository.findFirstByNormalizedKeyOrderByIdAsc(normSubKey)
                         .orElseGet(() -> StudyTopic.builder()
                                 .document(document)
                                 .user(user)

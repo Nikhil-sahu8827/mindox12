@@ -65,7 +65,6 @@ public class YouTubeService {
     /**
      * Complete video ingestion and processing pipeline.
      */
-    @Transactional
     public DocumentDto ingestYouTubeVideo(String rawUrl, UserPrincipal currentUser) {
         YouTubeVideoDataDto videoData = processYouTubeUrl(rawUrl, null, currentUser);
 
@@ -80,7 +79,6 @@ public class YouTubeService {
      * Processes YouTube URL completely: extracts full metadata, full transcript, chunks, embeds,
      * and generates initial AI study materials.
      */
-    @Transactional
     public YouTubeVideoDataDto processYouTubeUrl(String rawUrl, String preferredLang, UserPrincipal currentUser) {
         String videoId = urlService.extractVideoId(rawUrl);
         if (videoId == null) {
@@ -179,10 +177,10 @@ public class YouTubeService {
 
         documentMetadataRepository.saveAndFlush(metadata);
 
-        // 6. Ingest vector chunks
+        // 6. Ingest vector chunks asynchronously to prevent blocking or transaction timeouts
         if (!chunks.isEmpty()) {
             try {
-                ingestionService.ingestChunksSync(documentId, chunks);
+                ingestionService.ingestChunksAsync(documentId, chunks);
             } catch (Exception e) {
                 log.warn("Ingest chunks notice for YouTube video {}: {}", videoId, e.getMessage());
             }

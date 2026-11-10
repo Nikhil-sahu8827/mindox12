@@ -100,7 +100,6 @@ public class DocumentServiceImpl implements DocumentService {
     }
 
     @Override
-    @Transactional
     public DocumentDto ingestUrl(IngestUrlRequest request, UserPrincipal currentUser) {
         String url = request.getUrl().trim();
 
@@ -138,10 +137,7 @@ public class DocumentServiceImpl implements DocumentService {
         DocumentMetadata saved = documentMetadataRepository.saveAndFlush(metadata);
 
         if (!chunks.isEmpty()) {
-            ingestionService.ingestChunksSync(documentId, chunks);
-            saved.setStatus(DocumentStatus.INDEXED);
-            saved.setTotalChunks(chunks.size());
-            saved = documentMetadataRepository.saveAndFlush(saved);
+            ingestionService.ingestChunksAsync(documentId, chunks);
         } else {
             saved.setStatus(DocumentStatus.INDEXED);
             saved = documentMetadataRepository.saveAndFlush(saved);
@@ -159,7 +155,6 @@ public class DocumentServiceImpl implements DocumentService {
     }
 
     @Override
-    @Transactional
     public DocumentDto ingestYouTube(String url, UserPrincipal currentUser) {
         return youTubeService.ingestYouTubeVideo(url, currentUser);
     }
@@ -222,9 +217,7 @@ public class DocumentServiceImpl implements DocumentService {
         metadata = documentMetadataRepository.saveAndFlush(metadata);
 
         if (!chunks.isEmpty()) {
-            ingestionService.ingestChunksSync(documentId, chunks);
-            metadata.setStatus(DocumentStatus.INDEXED);
-            metadata = documentMetadataRepository.saveAndFlush(metadata);
+            ingestionService.ingestChunksAsync(documentId, chunks);
         } else {
             metadata.setStatus(DocumentStatus.INDEXED);
             metadata = documentMetadataRepository.saveAndFlush(metadata);
