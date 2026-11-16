@@ -44,6 +44,16 @@ public class GenerateQuizRequest {
 
     private String youtubeUrl;
 
+    public String getEffectiveTopic() {
+        if (topic != null && !topic.isBlank()) {
+            return topic.trim();
+        }
+        if (subject != null && !subject.isBlank()) {
+            return subject.trim();
+        }
+        return null;
+    }
+
     public String getEffectiveYoutubeUrl() {
         if (youtubeUrl != null && !youtubeUrl.isBlank()) {
             return youtubeUrl.trim();

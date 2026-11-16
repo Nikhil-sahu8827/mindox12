@@ -76,8 +76,12 @@ public class QuizServiceImpl implements QuizService {
             }
         }
 
+        String effectiveTopic = request.getEffectiveTopic();
         if (docIds.isEmpty()) {
-            throw new BadRequestException("Please select at least one document or provide a YouTube URL to generate quiz");
+            if (effectiveTopic != null && !effectiveTopic.isBlank()) {
+                return generateQuizForTopic(effectiveTopic, request, user);
+            }
+            throw new BadRequestException("Please select at least one document, provide a YouTube URL, or enter a topic name to generate quiz");
         }
         int questionsCount = request.getEffectiveNumQuestions();
 
@@ -1326,6 +1330,340 @@ public class QuizServiceImpl implements QuizService {
         quizRepository.delete(quiz);
         quizRepository.flush();
         log.info("Quiz {} successfully deleted from database for user {}", quizId, user.getId());
+    }
+
+    private QuizDto generateQuizForTopic(String topic, GenerateQuizRequest request, User user) {
+        int questionsCount = request.getEffectiveNumQuestions();
+        DifficultyLevel diff = request.getDifficulty() != null ? request.getDifficulty() : DifficultyLevel.MEDIUM;
+
+        String quizId = UUID.randomUUID().toString();
+        String title = "Quiz: " + topic;
+
+        log.info("Generating direct topic-based quiz for topic '{}' (count: {}, diff: {}) for user: {}",
+                topic, questionsCount, diff, user.getId());
+
+        Quiz quiz = Quiz.builder()
+                .id(quizId)
+                .user(user)
+                .document(null)
+                .title(title)
+                .difficulty(diff)
+                .totalQuestions(questionsCount)
+                .completed(false)
+                .score(0)
+                .build();
+
+        Quiz savedQuiz = quizRepository.save(quiz);
+
+        List<QuizQuestion> generatedQuestions = createQuestionsForTopicOnly(savedQuiz, topic, questionsCount, diff, request);
+
+        if (savedQuiz.getQuestions() != null) {
+            savedQuiz.getQuestions().clear();
+            savedQuiz.getQuestions().addAll(generatedQuestions);
+        } else {
+            savedQuiz.setQuestions(generatedQuestions);
+        }
+        quizQuestionRepository.flush();
+        quizRepository.flush();
+
+        try {
+            quizPdfService.generateOrUpdatePdf(savedQuiz.getId());
+        } catch (Exception e) {
+            log.warn("Automatic topic quiz PDF generation notice: {}", e.getMessage());
+        }
+
+        return toDto(savedQuiz, user);
+    }
+
+    private List<QuizQuestion> createQuestionsForTopicOnly(Quiz quiz, String topic, int count, DifficultyLevel diff, GenerateQuizRequest request) {
+        List<QuizQuestion> questions = new ArrayList<>();
+        List<String> rawTypes = (request != null)
+                ? request.getEffectiveQuestionTypes()
+                : Arrays.asList("MCQ");
+
+        if (chatModel != null) {
+            try {
+                StringBuilder typesPrompt = new StringBuilder();
+                for (String t : rawTypes) {
+                    if ("TRUE_FALSE".equals(t)) {
+                        typesPrompt.append("• TRUE_FALSE: Binary statement on ").append(topic).append(". 'options': [\"True\", \"False\"]. 'correctAnswer': 0 for True or 1 for False.\n");
+                    } else if ("SHORT_ANSWER".equals(t) || "FILL_IN_THE_BLANK".equals(t)) {
+                        typesPrompt.append("• SHORT_ANSWER: Direct concise recall question regarding ").append(topic).append(". 'options' has 1 correct answer and 3 alternatives.\n");
+                    } else if ("OUTPUT_PREDICTION".equals(t)) {
+                        typesPrompt.append("• OUTPUT_PREDICTION: 'What is the output of the following code snippet?' on ").append(topic).append(" with realistic code in 'codeSnippet'. 'options' has 4 outputs.\n");
+                    } else if ("DEBUGGING".equals(t)) {
+                        typesPrompt.append("• DEBUGGING: Identify bug/fix related to ").append(topic).append(" with code in 'codeSnippet'. 'options' has 4 descriptions of fix.\n");
+                    } else if ("CODE".equals(t)) {
+                        typesPrompt.append("• CODE: Code question with relevant syntax snippet in 'codeSnippet'.\n");
+                    } else if ("CONCEPTUAL".equals(t)) {
+                        typesPrompt.append("• CONCEPTUAL: In-depth conceptual question testing principles, mechanisms, and rationale of ").append(topic).append(".\n");
+                    } else if ("SENTENCE_CORRECTION".equals(t)) {
+                        typesPrompt.append("• SENTENCE_CORRECTION: Identify the factually correct or incorrect statement among 4 statements regarding ").append(topic).append(".\n");
+                    } else {
+                        typesPrompt.append("• MCQ: Standard multiple choice question with 4 options and 1 correct answer on ").append(topic).append(".\n");
+                    }
+                }
+
+                String prompt = String.format("""
+                        You are an authoritative academic examiner and technical educator.
+                        Create exactly %d high-quality quiz questions strictly on the topic: "%s".
+
+                        STRICT USER-SELECTED QUESTION TYPE ENFORCEMENT:
+                        The user has chosen EXCLUSIVELY the following question type(s): %s
+                        1. Every single question's 'type' field MUST strictly and exclusively be one of: %s.
+                        2. DO NOT mix any other question types! DO NOT generate ANY question type that the user has not selected!
+                        3. If only ONE question type is chosen (e.g. only 'MCQ' or only 'TRUE_FALSE'), then EVERY SINGLE ONE of the %d questions MUST BE OF THAT EXACT TYPE without exception!
+                        %s
+                        DIFFICULTY LEVEL: %s (%s)
+
+                        TOPIC FOCUS:
+                        1. Topic: %s
+                        2. Test fundamental concepts, practical real-world usage, key rules, and technical accuracy.
+                        3. For code questions, provide valid syntax snippet in 'codeSnippet'.
+                        4. Return ONLY a valid JSON array matching:
+                        [{"question": "...", "codeSnippet": "...or null", "options": ["opt0", "opt1", "opt2", "opt3"], "correctAnswer": 0, "explanation": "...", "type": "...", "topic": "%s", "difficulty": "%s"}]
+                        """,
+                        count, topic, rawTypes.toString(), rawTypes.toString(), count, typesPrompt.toString(),
+                        diff.name(), getDifficultyDescription(diff), topic, topic, diff.name()
+                );
+
+                ChatClient client = ChatClient.create(chatModel);
+                String json = client.prompt(prompt).call().content();
+                if (json != null) {
+                    int s = json.indexOf('[');
+                    int e = json.lastIndexOf(']');
+                    if (s != -1 && e != -1) {
+                        List<Map<String, Object>> parsed = objectMapper.readValue(
+                                json.substring(s, e + 1), new TypeReference<>() {}
+                        );
+
+                        for (Map<String, Object> qm : parsed) {
+                            String qText = (String) qm.get("question");
+                            if (qText == null || qText.isBlank()) continue;
+                            String code = (String) qm.get("codeSnippet");
+                            @SuppressWarnings("unchecked")
+                            List<String> opts = (List<String>) qm.get("options");
+                            int corr = 0;
+                            Object rawCorr = qm.get("correctAnswer");
+                            if (rawCorr instanceof Number num) {
+                                corr = num.intValue();
+                            } else if (rawCorr instanceof String cs) {
+                                try {
+                                    corr = Integer.parseInt(cs.trim());
+                                } catch (NumberFormatException ignored) {
+                                    if (cs.equalsIgnoreCase("A")) corr = 0;
+                                    else if (cs.equalsIgnoreCase("B")) corr = 1;
+                                    else if (cs.equalsIgnoreCase("C")) corr = 2;
+                                    else if (cs.equalsIgnoreCase("D")) corr = 3;
+                                }
+                            }
+                            String expl = (String) qm.get("explanation");
+                            String rawQType = (String) qm.get("type");
+                            String qType = GenerateQuizRequest.normalizeQuestionType(rawQType);
+
+                            if (!rawTypes.contains(qType)) {
+                                qType = rawTypes.get(questions.size() % rawTypes.size());
+                            }
+
+                            if ("TRUE_FALSE".equals(qType)) {
+                                opts = Arrays.asList("True", "False");
+                                if (corr < 0 || corr > 1) corr = 0;
+                            } else {
+                                if (opts == null || opts.isEmpty()) {
+                                    opts = Arrays.asList("Option A", "Option B", "Option C", "Option D");
+                                }
+                                if (corr < 0 || corr >= opts.size()) corr = 0;
+                            }
+
+                            QuizQuestion qq = QuizQuestion.builder()
+                                    .quiz(quiz)
+                                    .question(qText)
+                                    .codeSnippet(code)
+                                    .options(opts)
+                                    .correctAnswer(corr)
+                                    .explanation(expl != null ? expl : "Key principle of " + topic)
+                                    .type(qType)
+                                    .topic(topic)
+                                    .difficulty(diff.name())
+                                    .build();
+                            questions.add(quizQuestionRepository.save(qq));
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                log.warn("AI topic quiz generation error, using fallback topic questions: {}", e.getMessage());
+            }
+        }
+
+        if (questions.isEmpty()) {
+            questions = generateFallbackQuestionsForTopic(quiz, topic, count, diff, request);
+        }
+
+        return questions;
+    }
+
+    private List<QuizQuestion> generateFallbackQuestionsForTopic(Quiz quiz, String topic, int count, DifficultyLevel diff, GenerateQuizRequest request) {
+        List<QuizQuestion> questions = new ArrayList<>();
+        List<String> rawTypes = (request != null) ? request.getEffectiveQuestionTypes() : Arrays.asList("MCQ");
+
+        List<QuestionSpec> templates = Arrays.asList(
+                new QuestionSpec(
+                        "What is the primary objective and fundamental principle of " + topic + "?",
+                        null,
+                        "To establish a structured, reliable, and standardized mechanism for solving core domain requirements",
+                        Arrays.asList(
+                                "To bypass all security and memory boundaries permanently",
+                                "To enforce monolithic architecture without modularity",
+                                "To prevent backwards compatibility in production environments"
+                        ),
+                        "The foundational goal of " + topic + " is to ensure structured problem-solving, modularity, and high architectural reliability.",
+                        "MCQ",
+                        topic
+                ),
+                new QuestionSpec(
+                        "Which of the following statements is ACCURATE concerning " + topic + "?",
+                        null,
+                        "It promotes loose coupling, robust maintainability, and clear separation of responsibilities",
+                        Arrays.asList(
+                                "It strictly eliminates the need for testing and validation",
+                                "It can only be executed in synchronous single-threaded environments",
+                                "It restricts code reusability across software components"
+                        ),
+                        "In software design and computer systems, " + topic + " enhances maintainability, scalability, and code separation.",
+                        "MCQ",
+                        topic
+                ),
+                new QuestionSpec(
+                        topic + " provides essential architectural patterns that improve performance and reduce system defects.",
+                        null,
+                        "True",
+                        Collections.singletonList("False"),
+                        topic + " is recognized for improving structural stability and mitigating systemic defects when implemented properly.",
+                        "TRUE_FALSE",
+                        topic
+                ),
+                new QuestionSpec(
+                        "When implementing " + topic + " in production systems, which practice is strongly recommended?",
+                        null,
+                        "Adhering to standard conventions, enforcing strict input validation, and handling edge cases gracefully",
+                        Arrays.asList(
+                                "Hardcoding dynamic parameters and suppressing runtime warnings",
+                                "Disabling monitoring, metrics, and error logs entirely",
+                                "Allocating unconstrained resources without bounds or thresholds"
+                        ),
+                        "Production implementations of " + topic + " require rigorous validation, established design standards, and graceful fault recovery.",
+                        "MCQ",
+                        topic
+                ),
+                new QuestionSpec(
+                        "What is the recommended approach for error management and failure recovery in " + topic + "?",
+                        null,
+                        "Identify specific exception types, log actionable diagnostic traces, and recover to a consistent state",
+                        Arrays.asList(
+                                "Ignore return codes and assume operational success unconditionally",
+                                "Catch top-level exceptions and discard stack traces silently",
+                                "Halt the entire host process immediately upon minor syntax warnings"
+                        ),
+                        "Robust error handling in " + topic + " relies on granular exception detection, structured logging, and maintaining state consistency.",
+                        "MCQ",
+                        topic
+                ),
+                new QuestionSpec(
+                        "How does " + topic + " contribute to system scalability under heavy concurrent workloads?",
+                        null,
+                        "By optimizing resource utilization, minimizing synchronization bottlenecks, and leveraging caching",
+                        Arrays.asList(
+                                "By blocking I/O threads unconditionally during peak traffic",
+                                "By escalating memory consumption linearly with unbounded allocations",
+                                "By duplicating execution pipelines arbitrarily without pooling"
+                        ),
+                        "Scalability in " + topic + " is achieved through efficient resource pooling, reduced lock contention, and intelligent caching strategies.",
+                        "MCQ",
+                        topic
+                ),
+                new QuestionSpec(
+                        "In modern architectures, " + topic + " supports both vertical and horizontal scaling when designed statelessly.",
+                        null,
+                        "True",
+                        Collections.singletonList("False"),
+                        "Stateless components adhering to " + topic + " can be easily replicated across clusters to support horizontal scalability.",
+                        "TRUE_FALSE",
+                        topic
+                ),
+                new QuestionSpec(
+                        "What is a common anti-pattern to avoid when working with " + topic + "?",
+                        null,
+                        "Tightly coupling unrelated components and neglecting clear domain boundaries",
+                        Arrays.asList(
+                                "Writing automated unit tests for critical business logic",
+                                "Configuring timeouts and circuit breakers for remote dependencies",
+                                "Documenting public interfaces and data contracts"
+                        ),
+                        "Tight coupling and blurring domain boundaries severely impede maintenance and extensibility in " + topic + ".",
+                        "MCQ",
+                        topic
+                ),
+                new QuestionSpec(
+                        "Which metric is most vital when monitoring the operational health of " + topic + "?",
+                        null,
+                        "Latency percentiles (p95/p99), error rates, and resource saturation",
+                        Arrays.asList(
+                                "Number of blank lines in configuration files",
+                                "The alphabetical ordering of function names",
+                                "Physical chassis color of the deployment server"
+                        ),
+                        "Effective operational observability for " + topic + " requires tracking request latency percentiles, error percentages, and saturation.",
+                        "MCQ",
+                        topic
+                ),
+                new QuestionSpec(
+                        "Code refactoring in " + topic + " should always be supported by comprehensive test coverage.",
+                        null,
+                        "True",
+                        Collections.singletonList("False"),
+                        "Comprehensive test coverage ensures regression prevention during structural refactoring in " + topic + ".",
+                        "TRUE_FALSE",
+                        topic
+                )
+        );
+
+        int totalToCreate = Math.max(count, 5);
+        for (int i = 0; i < totalToCreate; i++) {
+            QuestionSpec spec = templates.get(i % templates.size());
+            String qType = spec.type;
+            if (!rawTypes.contains(qType)) {
+                qType = rawTypes.get(i % rawTypes.size());
+            }
+
+            List<String> options = new ArrayList<>();
+            int corr = 0;
+
+            if ("TRUE_FALSE".equals(qType)) {
+                options = Arrays.asList("True", "False");
+                corr = "True".equalsIgnoreCase(spec.correctOption) ? 0 : 1;
+            } else {
+                options.add(spec.correctOption);
+                options.addAll(spec.distractors);
+                Collections.shuffle(options, new Random(42L + i * 31L));
+                corr = options.indexOf(spec.correctOption);
+            }
+
+            QuizQuestion qq = QuizQuestion.builder()
+                    .quiz(quiz)
+                    .question(spec.question)
+                    .codeSnippet(spec.codeSnippet)
+                    .options(options)
+                    .correctAnswer(corr)
+                    .explanation(spec.explanation)
+                    .type(qType)
+                    .topic(topic)
+                    .difficulty(diff.name())
+                    .build();
+
+            questions.add(quizQuestionRepository.save(qq));
+        }
+
+        return questions;
     }
 
     private User getUser(Long userId) {
